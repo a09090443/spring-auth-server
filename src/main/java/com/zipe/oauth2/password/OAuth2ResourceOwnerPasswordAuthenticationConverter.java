@@ -1,5 +1,6 @@
-package com.zipe.oauth2;
+package com.zipe.oauth2.password;
 
+import com.zipe.oauth2.OAuth2EndpointUtils;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;

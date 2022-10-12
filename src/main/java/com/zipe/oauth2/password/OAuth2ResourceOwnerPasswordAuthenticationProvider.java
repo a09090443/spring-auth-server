@@ -1,4 +1,4 @@
-package com.zipe.oauth2;
+package com.zipe.oauth2.password;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -66,9 +66,9 @@ public class OAuth2ResourceOwnerPasswordAuthenticationProvider implements Authen
 	@Override
 	public Authentication authenticate(Authentication authentication) throws AuthenticationException {
 
-		OAuth2ResourceOwnerPasswordAuthenticationToken resouceOwnerPasswordAuthentication = (OAuth2ResourceOwnerPasswordAuthenticationToken) authentication;
+		OAuth2ResourceOwnerPasswordAuthenticationToken resourceOwnerPasswordAuthentication = (OAuth2ResourceOwnerPasswordAuthenticationToken) authentication;
 
-		OAuth2ClientAuthenticationToken clientPrincipal = getAuthenticatedClientElseThrowInvalidClient(resouceOwnerPasswordAuthentication);
+		OAuth2ClientAuthenticationToken clientPrincipal = getAuthenticatedClientElseThrowInvalidClient(resourceOwnerPasswordAuthentication);
 
 		RegisteredClient registeredClient = clientPrincipal.getRegisteredClient();
 
@@ -76,10 +76,10 @@ public class OAuth2ResourceOwnerPasswordAuthenticationProvider implements Authen
 			throw new OAuth2AuthenticationException(OAuth2ErrorCodes.UNAUTHORIZED_CLIENT);
 		}
 
-		Authentication usernamePasswordAuthentication = getUsernamePasswordAuthentication(resouceOwnerPasswordAuthentication);
+		Authentication usernamePasswordAuthentication = getUsernamePasswordAuthentication(resourceOwnerPasswordAuthentication);
 
 		Set<String> authorizedScopes = registeredClient.getScopes();		// Default to configured scopes
-		Set<String> requestedScopes = resouceOwnerPasswordAuthentication.getScopes();
+		Set<String> requestedScopes = resourceOwnerPasswordAuthentication.getScopes();
 		if (!CollectionUtils.isEmpty(requestedScopes)) {
 			Set<String> unauthorizedScopes = requestedScopes.stream()
 					.filter(requestedScope -> !registeredClient.getScopes().contains(requestedScope))
@@ -91,15 +91,13 @@ public class OAuth2ResourceOwnerPasswordAuthenticationProvider implements Authen
 			authorizedScopes = new LinkedHashSet<>(requestedScopes);
 		}
 
-		// @formatter:off
 		DefaultOAuth2TokenContext.Builder tokenContextBuilder = DefaultOAuth2TokenContext.builder()
 				.registeredClient(registeredClient)
 				.principal(usernamePasswordAuthentication)
 				.providerContext(ProviderContextHolder.getProviderContext())
 				.authorizedScopes(authorizedScopes)
 				.authorizationGrantType(AuthorizationGrantType.PASSWORD)
-				.authorizationGrant(resouceOwnerPasswordAuthentication);
-		// @formatter:on
+				.authorizationGrant(resourceOwnerPasswordAuthentication);
 
 		// ----- Access token -----
 		OAuth2TokenContext tokenContext = tokenContextBuilder.tokenType(OAuth2TokenType.ACCESS_TOKEN).build();
@@ -131,20 +129,19 @@ public class OAuth2ResourceOwnerPasswordAuthenticationProvider implements Authen
 
 		}
 
-		// @formatter:off
 		OAuth2Authorization.Builder authorizationBuilder = OAuth2Authorization.withRegisteredClient(registeredClient)
 				.principalName(usernamePasswordAuthentication.getName())
 				.authorizationGrantType(AuthorizationGrantType.PASSWORD)
 				.attribute(OAuth2Authorization.AUTHORIZED_SCOPE_ATTRIBUTE_NAME, authorizedScopes)
 				.attribute(Principal.class.getName(), usernamePasswordAuthentication);
-		// @formatter:on
+
 		if (generatedAccessToken instanceof ClaimAccessor) {
 			authorizationBuilder.token(accessToken, (metadata) ->
 					metadata.put(OAuth2Authorization.Token.CLAIMS_METADATA_NAME, ((ClaimAccessor) generatedAccessToken).getClaims()));
 		} else {
 			authorizationBuilder.accessToken(accessToken);
 		}
-
+		authorizationBuilder.refreshToken(refreshToken);
 		OAuth2Authorization authorization = authorizationBuilder.build();
 
 		this.authorizationService.save(authorization);

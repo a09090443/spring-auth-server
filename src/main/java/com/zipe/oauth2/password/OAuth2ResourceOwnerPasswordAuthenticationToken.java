@@ -1,4 +1,4 @@
-package com.zipe.oauth2;
+package com.zipe.oauth2.password;
 
 import org.springframework.lang.Nullable;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
