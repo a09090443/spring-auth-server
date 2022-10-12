@@ -34,12 +34,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * 登录端点
- *
- * @author lengleng
- * @date 2022/5/27
- */
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/password")
