@@ -33,13 +33,20 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.authorization.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.config.annotation.web.configurers.oauth2.server.resource.OAuth2ResourceServerConfigurer;
 import org.springframework.security.jackson2.SecurityJackson2Modules;
+import org.springframework.security.oauth2.core.AuthorizationGrantType;
+import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.OAuth2Token;
+import org.springframework.security.oauth2.core.OAuth2TokenFormat;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
+import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
+import org.springframework.security.oauth2.server.authorization.config.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.config.ProviderSettings;
 import org.springframework.security.oauth2.server.authorization.config.TokenSettings;
 import org.springframework.security.oauth2.server.authorization.jackson2.OAuth2AuthorizationServerJackson2Module;
@@ -67,11 +74,11 @@ import java.util.UUID;
 @EnableWebSecurity
 public class AuthServerConfiguration {
 
+    private static final String CUSTOM_CONSENT_PAGE_URI = "/oauth2/consent";
+
     @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE)
     public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http) throws Exception {
-//        OAuth2AuthorizationServerConfiguration.applyDefaultSecurity(http);
-//        return http.formLogin(Customizer.withDefaults()).build();
 
         OAuth2AuthorizationServerConfigurer<HttpSecurity> authorizationServerConfigurer = new OAuth2AuthorizationServerConfigurer<>();
 
@@ -82,6 +89,8 @@ public class AuthServerConfiguration {
                         new OAuth2ClientCredentialsAuthenticationConverter(),
                         new OAuth2ResourceOwnerPasswordAuthenticationConverter()))
         )));
+        authorizationServerConfigurer.authorizationEndpoint(authorizationEndpoint -> authorizationEndpoint.consentPage(CUSTOM_CONSENT_PAGE_URI));
+
         RequestMatcher endpointsMatcher = authorizationServerConfigurer
                 .getEndpointsMatcher();
 
@@ -126,23 +135,28 @@ public class AuthServerConfiguration {
 
     @Bean
     public RegisteredClientRepository registeredClientRepository(JdbcTemplate jdbcTemplate) {
-//        RegisteredClient client = RegisteredClient.withId("pig")
-//                .clientId("zipe")
-//                .clientSecret("{noop}1234")
-//                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-//                .authorizationGrantTypes(authorizationGrantTypes -> {
-//                    authorizationGrantTypes.add(AuthorizationGrantType.AUTHORIZATION_CODE);
-//                    authorizationGrantTypes.add(AuthorizationGrantType.REFRESH_TOKEN);
-//                })
-//                .tokenSettings(TokenSettings.builder().accessTokenFormat(OAuth2TokenFormat.REFERENCE).build())
-//                .redirectUri("https://pig4cloud.com")
-//                .build();
-//
-//        JdbcRegisteredClientRepository registeredClientRepository =
-//                new JdbcRegisteredClientRepository(jdbcTemplate);
-//        registeredClientRepository.save(client);
+        RegisteredClient client = RegisteredClient.withId("pig")
+                .clientId("zipe")
+                .clientSecret("{noop}1234")
+                .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                .authorizationGrantTypes(authorizationGrantTypes -> {
+                    authorizationGrantTypes.add(AuthorizationGrantType.AUTHORIZATION_CODE);
+                    authorizationGrantTypes.add(AuthorizationGrantType.REFRESH_TOKEN);
+                })
+                .scopes(scopes -> {
+                    scopes.add("message.read");
+                    scopes.add("message.write");
+                })
+                .clientSettings(ClientSettings.builder().requireAuthorizationConsent(true).build())
+                .tokenSettings(TokenSettings.builder().accessTokenFormat(OAuth2TokenFormat.REFERENCE).build())
+                .redirectUri("https://www.google.com")
+                .build();
 
-        return new JdbcRegisteredClientRepository(jdbcTemplate);
+        JdbcRegisteredClientRepository registeredClientRepository =
+                new JdbcRegisteredClientRepository(jdbcTemplate);
+        registeredClientRepository.save(client);
+        return registeredClientRepository;
+//        return new JdbcRegisteredClientRepository(jdbcTemplate);
     }
 
     @Bean
@@ -204,6 +218,11 @@ public class AuthServerConfiguration {
         rowMapper.setObjectMapper(objectMapper);
         service.setAuthorizationRowMapper(rowMapper);
         return service;
+    }
+
+    @Bean
+    public OAuth2AuthorizationConsentService authorizationConsentService(JdbcTemplate jdbcTemplate, RegisteredClientRepository registeredClientRepository) {
+        return new JdbcOAuth2AuthorizationConsentService(jdbcTemplate, registeredClientRepository);
     }
 
     @Bean
